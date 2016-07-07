@@ -86,9 +86,10 @@ int log_vgtp_pe_sync(int s_id, char *s_desc, int data_len, char* data_val)
     char cmd_buffer[REDIS_CMD_BUFFER_LEN];
     memset((void*)cmd_buffer, 0, REDIS_CMD_BUFFER_LEN);
 
-    sprintf(cmd_buffer, "rpush %s \"ID:%d|DESC:%s|%s\"", REDIS_PE_STAT_LIST, s_id, s_desc, data_val);
+    sprintf(cmd_buffer, "ID:%d|DESC:%s|%s", s_id, s_desc, data_val);
     DBG("cmd_buffer: %s\n", cmd_buffer);
-    redis_reply = (redisReply*)redisCommand(redis_con,cmd_buffer);
+    redis_reply = (redisReply*)redisCommand(redis_con, "rpush %s %b", 
+            REDIS_PE_STAT_LIST, cmd_buffer, (size_t)strlen(cmd_buffer));
 
     if(NULL == redis_reply
            ||redis_reply->type == REDIS_REPLY_ERROR

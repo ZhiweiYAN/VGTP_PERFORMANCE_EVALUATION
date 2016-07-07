@@ -1,0 +1,76 @@
+$def with (data, title=None)
+$code:
+    para_dict = {}
+    raw_data = []
+    r = redis.StrictRedis(host='localhost', port=6379, db=0)
+
+    #check key_of_list
+    if r.exists('PE_STAT_LIST'):
+        table = r.lrange('PE_STAT_LIST', 0, -1)
+        for row in table:
+            raw_data.append(row)
+            columns = row.split('|')
+            for item in columns:
+                #remove quote and white space characters.
+                item = item.replace('"','').replace(" ", "").replace("\r\n","")
+                if len(item)<2:
+                    continue
+                [k,v] = item.split(":")
+                if para_dict.has_key(k):
+                    tmp_list = para_dict[k]
+                    tmp_list.append(v)
+                    para_dict[k] = tmp_list 
+                else:
+                    para_dict[k] = [v]
+
+        x = para_dict
+        sorted_x = os.sorted(x.items(), key=operator.itemgetter(0))
+        
+    else:
+        raw_data = "No data."
+        para_dict['ID'] = 'N/A'
+        para_dict['DESC'] = "No results!"
+    #    data = r.lpop('PE_STAT_LIST')
+<html>
+    <head>
+    <meta http-equiv="Content-Type" content = "text/html; charset=utf-8">
+        <title>Vanxum VGTP Performance</title>
+        <!-- <script src="echarts.min.js"></script> -->
+    <script src="../static/echarts.js"></script>
+    </head>
+    <body>
+        <hr>
+        <h1>模块: $para_dict['ID'][0] </br>描述: $para_dict['DESC'][0]</h1>
+        <hr>
+        <h1>Raw Data</h1>
+        $for k,v in para_dict.items():
+            $:k, $:v <br/>
+        <hr>
+
+        $for k,v in para_dict.items():
+            <div id='$:k' style="width:1024px; height:400px;"></div>
+            <script type="text/javascript">
+                var ${k}_Chart = echarts.init(document.getElementById('$:k'));
+                var ${k}_option = {
+                    title: {
+                            text: '$:k'
+                    },
+                    tooltip: {},
+                    legend: {
+                        data:['$:k']
+                    },
+                    xAxis: {
+                        data: $:para_dict['FID']
+                    },
+                    yAxis: {},
+                    series: [{
+                        name: '$:k',
+                        type: 'line',
+                        data: $:v
+                    }]
+                };
+                ${k}_Chart.setOption(${k}_option)
+            </script>
+            <hr>
+    </body>
+</html>
