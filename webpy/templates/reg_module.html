@@ -2,35 +2,51 @@ $def with (data, title=None)
 $code:
     para_dict = {}
     raw_data = []
+
+    station_id = 0
+    station_desc = 1
+    x_axis_col_id = 2
+    min_item_len = 2
+
     r = redis.StrictRedis(host='localhost', port=6379, db=0)
 
-    #check key_of_list
+    # check key_of_list
+    # Example:
+    # ID:001|DESC:TT|FID:00020 | REF_ID:00019 | SC: NO | TYPE:P | UNC:4720 | MVM:0000 | PRE:0120 | VID:0000 | TXT:0208 | PIC:3112 | 时间:0084  
+    # ID:001|DESC:TT|FID:00021 | REF_ID:00020 | SC: NO | TYPE:P | UNC:4672 | MVM:0000 | PRE:0002 | VID:3486 | TXT:0000 | PIC:0000 | 时间:0021 |VIDEO_BEGIN:1 | VIDEO_X:0272 | VIDEO_Y:0160 | VIDEO_WIDTH:1328 | VIDEO_HEIGHT:0672 | 
+
     if r.exists('PE_STAT_LIST'):
         table = r.lrange('PE_STAT_LIST', 0, -1)
         for row in table:
+            # for debug
             raw_data.append(row)
+
+            #remove quote and white space characters.
+            row = re.sub(r"\s+", "", row)
+            row = re.sub(r"\|$", "", row)
+
             columns = row.split('|')
-            for item in columns:
-                #remove quote and white space characters.
-                item = item.replace('"','').replace(" ", "").replace("\r\n","")
-                if len(item)<2:
-                    continue
+
+            [s_id_key, s_id_val] = columns[station_id].split(':')
+            [s_desc_key, s_desc_val] = columns[station_desc].split(':')
+            [x_axis_key, x_axis_val] = columns[x_axis_col_id].split(':')
+
+            for item in columns[x_axis_col_id+1:]:
                 [k,v] = item.split(":")
+                v_tuple = [int(x_axis_val), (v)]
+                #print k,v, v_tuple
                 if para_dict.has_key(k):
                     tmp_list = para_dict[k]
-                    tmp_list.append(v)
+                    tmp_list.append(v_tuple)
                     para_dict[k] = tmp_list 
                 else:
-                    para_dict[k] = [v]
-
-        x = para_dict
-        sorted_x = os.sorted(x.items(), key=operator.itemgetter(0))
-        
+                    para_dict[k] = [v_tuple]
+        sorted_keys = para_dict.keys().sort()
+        raw_data.append(sorted_keys)
     else:
         raw_data = "No data."
         para_dict['ID'] = 'N/A'
         para_dict['DESC'] = "No results!"
-    #    data = r.lpop('PE_STAT_LIST')
 <html>
     <head>
     <meta http-equiv="Content-Type" content = "text/html; charset=utf-8">
@@ -40,14 +56,10 @@ $code:
     </head>
     <body>
         <hr>
-        <h1>模块: $para_dict['ID'][0] </br>描述: $para_dict['DESC'][0]</h1>
-        <hr>
-        <h1>Raw Data</h1>
-        $for k,v in para_dict.items():
-            $:k, $:v <br/>
+        <h1>模块: $s_id_val </br>描述: $s_desc_val</h1>
         <hr>
 
-        $for k,v in para_dict.items():
+        $for k in sorted(para_dict.keys()):
             <div id='$:k' style="width:1024px; height:400px;"></div>
             <script type="text/javascript">
                 var ${k}_Chart = echarts.init(document.getElementById('$:k'));
@@ -59,18 +71,17 @@ $code:
                     legend: {
                         data:['$:k']
                     },
-                    xAxis: {
-                        data: $:para_dict['FID']
-                    },
+                    xAxis: {},
                     yAxis: {},
                     series: [{
                         name: '$:k',
-                        type: 'line',
-                        data: $:v
+                        type: 'bar',
+                        data: $:para_dict[k]
                     }]
                 };
                 ${k}_Chart.setOption(${k}_option)
             </script>
+            $:k,$:para_dict[k] <br/><br/>
             <hr>
     </body>
 </html>

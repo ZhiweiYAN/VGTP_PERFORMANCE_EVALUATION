@@ -17,25 +17,22 @@ __status__ = "Production"
 
 import web
 import redis
-import itertools
 import operator
 import os
 import sys
+import re
 
+other_libs={'redis':redis, 'sys':sys, 'operator':operator, 're':re , 'sorted':sorted}
+render = web.template.render('templates/', globals=other_libs)
 
-globals = {'redis':redis, 'itertools':itertools, \
-        'os': os, 'sys':sys, \
-        'operator':operator}
-
-render = web.template.render('templates/', globals=globals)
 urls = (
-    '/', 'index',
-    )
+    '/', 'index'
+)
 
 class index:
     def GET(self):
-        return render.reg_module("reg_module" , "Hello, world.")
-
+        return render.reg_module("reg_module" , "TESTING")
+       
 if __name__ == "__main__":
     app = web.application(urls, globals())
     app.run()
