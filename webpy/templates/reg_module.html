@@ -7,17 +7,23 @@ $code:
     station_desc = 1
     x_axis_col_id = 2
     min_item_len = 2
+    max_x_axis_len = 120
 
     r = redis.StrictRedis(host='localhost', port=6379, db=0)
 
     # check key_of_list
     # Example:
-    # ID:001|DESC:TT|FID:00020 | REF_ID:00019 | SC: NO | TYPE:P | UNC:4720 | MVM:0000 | PRE:0120 | VID:0000 | TXT:0208 | PIC:3112 | 时间:0084  
-    # ID:001|DESC:TT|FID:00021 | REF_ID:00020 | SC: NO | TYPE:P | UNC:4672 | MVM:0000 | PRE:0002 | VID:3486 | TXT:0000 | PIC:0000 | 时间:0021 |VIDEO_BEGIN:1 | VIDEO_X:0272 | VIDEO_Y:0160 | VIDEO_WIDTH:1328 | VIDEO_HEIGHT:0672 | 
+    # ID:001|DESC:TT|FID:00020 | REF_ID:00019 | SC: NO | TYPE:P | UNC:4720 | MVM:0000 | PRE:0120 | VID:0000 | TXT:0208 | PIC:3112 | TIME:0084  
+    # ID:001|DESC:TT|FID:00021 | REF_ID:00020 | SC: NO | TYPE:P | UNC:4672 | MVM:0000 | PRE:0002 | VID:3486 | TXT:0000 | PIC:0000 | TIME:0021 |VIDEO_BEGIN:1 | VIDEO_X:0272 | VIDEO_Y:0160 | VIDEO_WIDTH:1328 | VIDEO_HEIGHT:0672 | 
 
     if r.exists('PE_STAT_LIST'):
+        #Fetch all data rows from redis.
         table = r.lrange('PE_STAT_LIST', 0, -1)
         for row in table:
+
+            #remove the rows
+            r.lpop('PE_STAT_LIST')
+
             # for debug
             raw_data.append(row)
 
@@ -31,9 +37,11 @@ $code:
             [s_desc_key, s_desc_val] = columns[station_desc].split(':')
             [x_axis_key, x_axis_val] = columns[x_axis_col_id].split(':')
 
+            #parse data string
             for item in columns[x_axis_col_id+1:]:
                 [k,v] = item.split(":")
                 v_tuple = [int(x_axis_val), (v)]
+
                 #print k,v, v_tuple
                 if para_dict.has_key(k):
                     tmp_list = para_dict[k]
@@ -53,35 +61,100 @@ $code:
         <title>Vanxum VGTP Performance</title>
         <!-- <script src="echarts.min.js"></script> -->
     <script src="../static/echarts.js"></script>
+    <script src="../static/jquery-3.0.0.min.js"></script>
     </head>
     <body>
         <hr>
-        <h1>模块: $s_id_val </br>描述: $s_desc_val</h1>
+        <h1>模块标号: $s_id_val </br>模块描述: $s_desc_val</h1>
         <hr>
-
+        <script type="text/javascript">
+            var para_data = {};
+        </script>
         $for k in sorted(para_dict.keys()):
-            <div id='$:k' style="width:1024px; height:400px;"></div>
+            <div id='$:k' style="width:1024px; height:200px;"></div>
             <script type="text/javascript">
+                para_data["$:k"] = $:para_dict[k]
                 var ${k}_Chart = echarts.init(document.getElementById('$:k'));
                 var ${k}_option = {
                     title: {
-                            text: '$:k'
+                        text: '$:k'
                     },
                     tooltip: {},
                     legend: {
-                        data:['$:k']
+                        para_data:["$:k"]
                     },
-                    xAxis: {},
-                    yAxis: {},
+                    xAxis: {
+                        type: 'value'
+                    },
+                    yAxis: {
+                        type: 'value'
+                    },
                     series: [{
                         name: '$:k',
                         type: 'bar',
-                        data: $:para_dict[k]
+                        data:  para_data["$:k"],
+                        barMaxWidth: 3 
                     }]
                 };
                 ${k}_Chart.setOption(${k}_option)
             </script>
-            $:k,$:para_dict[k] <br/><br/>
-            <hr>
+        <hr>
+
+        <script>
+        var app = {}; 
+
+        // Fetch data form the servers.
+        function refresh_data() {
+            $$.ajax({
+                    type: "GET",
+                    url: "refresh_data",
+                    async: true,
+                    dataType: "text",
+                    success: parse_data
+            });
+        };
+        
+        //parse data of drawing.
+        function parse_data(data){
+            if ("DATA:NULL" != data){
+                columns = data.split("|");
+                x = columns[$x_axis_col_id].split(":")[1];
+                x_name = columns[$x_axis_col_id].split(":")[0];
+                for( item of columns) {
+                    [key, val] = item.split(":");
+                    if (undefined == para_data[key]){
+                        console.log(key, "NO KEY");
+                        continue;
+                    }
+                    else{
+                        para_data[key].push([parseInt(x), val]);
+                        console.log(x, val);
+                    }
+                }
+                shift = true;
+                if (shift) {
+                    $for k in sorted(para_dict.keys()):
+                        if (para_data["$:k"].length>=$max_x_axis_len) {
+                            para_data["$:k"].shift();
+                        }
+                        //data["$:k"].push([x, Math.random()*100]);
+                        ${k}_Chart.setOption({
+                            xAxis:{
+                                name: x_name,
+                                min: para_data["$:k"][0][0]
+                            },
+                            series:[{
+                                animation: false,
+                                data : para_data["$:k"]
+                            }]
+                        });
+                }
+            }
+        }
+
+        app.timeTicket = setInterval(function () {
+            refresh_data(true);
+            }, 200);;
+        </script>
     </body>
 </html>
