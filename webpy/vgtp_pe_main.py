@@ -26,6 +26,8 @@ import log_config
 logger = log_config.log_config("./log/vgtp_pe_main_log.txt", "VGTP_PE")
 logger.info("VGTP_PE start.")
 
+list_key_prefix = 'PE_STAT_LIST'
+
 other_libs={'redis':redis, 
             'sys':sys, 
             'operator':operator, 
@@ -39,32 +41,39 @@ urls = (
     '/refresh_data', 'refresh_data'
 )
 
+r = redis.StrictRedis(host='localhost', port=6379, db=0)
+
 class index:
     def GET(self):
-        r = redis.StrictRedis(host='localhost', port=6379, db=0)
-        content = r.lrange('PE_STAT_LIST', 0, -1)
+        i = web.input(modid='00')
+        list_key = list_key_prefix + i.modid
+
+        content = r.lrange(list_key, 0, -1)
 
         if len(content)==0:
             logger.info("No Data in Redis DB.")
             return "<html><body><h2> No Data in Redis DB. Wait a min.</h2>\
                     </body></html>"
-
         else:        
-            return render.reg_module("reg_module" , "TESTING")
+            return render.reg_module(list_key , i.modid)
 
 class refresh_data:
     def GET(self):
-        r = redis.StrictRedis(host='localhost', port=6379, db=0)
-        if r.exists('PE_STAT_LIST'):
-            row = r.lpop('PE_STAT_LIST')
+        i = web.input(modid='00')
+        list_key = list_key_prefix + i.modid
+
+        if r.exists(list_key):
+            row = r.lpop(list_key)
             if None != row:
                 row = re.sub(r"\s+", "", row)
                 row = re.sub(r"\|$", "", row)
                 logger.info(row)
                 return row
             else:
+                logger.info("DATA:NULL")
                 return "{DATA:NULL}"
         else:
+            logger.info("DATA:NULL")
             return "{DATA:NULL}"
         
 if __name__ == "__main__":

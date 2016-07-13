@@ -1,4 +1,4 @@
-$def with (data, title=None)
+$def with (list_key, mod_id=None)
 $code:
     para_dict = {}
     raw_data = []
@@ -16,13 +16,13 @@ $code:
     # ID:001|DESC:TT|FID:00020 | REF_ID:00019 | SC: NO | TYPE:P | UNC:4720 | MVM:0000 | PRE:0120 | VID:0000 | TXT:0208 | PIC:3112 | TIME:0084  
     # ID:001|DESC:TT|FID:00021 | REF_ID:00020 | SC: NO | TYPE:P | UNC:4672 | MVM:0000 | PRE:0002 | VID:3486 | TXT:0000 | PIC:0000 | TIME:0021 |VIDEO_BEGIN:1 | VIDEO_X:0272 | VIDEO_Y:0160 | VIDEO_WIDTH:1328 | VIDEO_HEIGHT:0672 | 
 
-    if r.exists('PE_STAT_LIST'):
+    if r.exists(list_key):
         #Fetch all data rows from redis.
-        table = r.lrange('PE_STAT_LIST', 0, -1)
+        table = r.lrange(list_key, 0, -1)
         for row in table:
 
             #remove the rows
-            r.lpop('PE_STAT_LIST')
+            r.lpop(list_key)
 
             # for debug
             raw_data.append(row)
@@ -58,20 +58,26 @@ $code:
 <html>
     <head>
     <meta http-equiv="Content-Type" content = "text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>Vanxum VGTP Performance</title>
         <!-- <script src="echarts.min.js"></script> -->
-    <script src="../static/echarts.js"></script>
+    <link rel="stylesheet" href="../static/css/bootstrap.min.css">
+    <script src="../static/echarts.min.js"></script>
     <script src="../static/jquery-3.0.0.min.js"></script>
+    <script src="../static/underscore-min.js"></script>
     </head>
     <body>
+    <div class="container">
+        <div class="jumbotron">
+        <h2>模块标号: $s_id_val </br>模块描述: $s_desc_val</h2>
+        </div>
         <hr>
-        <h1>模块标号: $s_id_val </br>模块描述: $s_desc_val</h1>
         <hr>
         <script type="text/javascript">
             var para_data = {};
         </script>
         $for k in sorted(para_dict.keys()):
-            <div id='$:k' style="width:1024px; height:200px;"></div>
+            <div class="row" id='$:k' style="width:1024px; height:350px;"></div>
             <script type="text/javascript">
                 para_data["$:k"] = $:para_dict[k]
                 var ${k}_Chart = echarts.init(document.getElementById('$:k'));
@@ -84,16 +90,18 @@ $code:
                         para_data:["$:k"]
                     },
                     xAxis: {
-                        type: 'value'
+                         min: para_data["$:k"][0][0],
+                         type: 'value'
                     },
                     yAxis: {
-                        type: 'value'
+                        type: 'value',
                     },
                     series: [{
                         name: '$:k',
                         type: 'bar',
                         data:  para_data["$:k"],
-                        barMaxWidth: 3 
+                        barMaxWidth: 3,
+
                     }]
                 };
                 ${k}_Chart.setOption(${k}_option)
@@ -107,7 +115,7 @@ $code:
         function refresh_data() {
             $$.ajax({
                     type: "GET",
-                    url: "refresh_data",
+                    url: "refresh_data?modid=$mod_id",
                     async: true,
                     dataType: "text",
                     success: parse_data
@@ -116,7 +124,10 @@ $code:
         
         //parse data of drawing.
         function parse_data(data){
-            if ("DATA:NULL" != data){
+            x_min = 0;
+            x_max = 200;
+            if ("{DATA:NULL}" != data){
+
                 columns = data.split("|");
                 x = columns[$x_axis_col_id].split(":")[1];
                 x_name = columns[$x_axis_col_id].split(":")[0];
@@ -127,6 +138,7 @@ $code:
                         continue;
                     }
                     else{
+                        x_max = x;
                         para_data[key].push([parseInt(x), val]);
                         console.log(x, val);
                     }
@@ -134,14 +146,13 @@ $code:
                 shift = true;
                 if (shift) {
                     $for k in sorted(para_dict.keys()):
-                        if (para_data["$:k"].length>=$max_x_axis_len) {
-                            para_data["$:k"].shift();
-                        }
-                        //data["$:k"].push([x, Math.random()*100]);
+                        list_length = para_data["$:k"].length;
+                        [x_min,v] = para_data["$:k"].shift();
                         ${k}_Chart.setOption({
                             xAxis:{
-                                name: x_name,
-                                min: para_data["$:k"][0][0]
+                               name: x_name +", VAL: "+ val,
+                               min: x_min,
+                               max: x_max
                             },
                             series:[{
                                 animation: false,
@@ -156,5 +167,6 @@ $code:
             refresh_data(true);
             }, 200);;
         </script>
+    </div>
     </body>
 </html>

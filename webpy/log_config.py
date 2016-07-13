@@ -101,9 +101,9 @@ def log_config(log_filename, logger_str):
 
     
     # logging information will print in the screen, too.
-    console = logging.StreamHandler()
-    console.setLevel(logging.INFO)
-    console.setFormatter(logformatter)
-    logger.addHandler(console)
+    #console = logging.StreamHandler()
+    #console.setLevel(logging.INFO)
+    #console.setFormatter(logformatter)
+    #logger.addHandler(console)
 
     return logger
