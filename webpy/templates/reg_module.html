@@ -7,7 +7,7 @@ $code:
     station_desc = 1
     x_axis_col_id = 2
     min_item_len = 2
-    max_x_axis_len = 120
+    max_x_axis_len = 128 
 
     r = redis.StrictRedis(host='localhost', port=6379, db=0)
 
@@ -59,25 +59,50 @@ $code:
     <head>
     <meta http-equiv="Content-Type" content = "text/html; charset=utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>Vanxum VGTP Performance</title>
-        <!-- <script src="echarts.min.js"></script> -->
+    <meta name="description" content="Vanxum VGTP Performance Pages">
+    <meta name="author" content="Jerod.yan@gmail.com">
+
+    <title>Vanxum VGTP Performance</title>
+
     <link rel="stylesheet" href="../static/css/bootstrap.min.css">
     <script src="../static/echarts.min.js"></script>
     <script src="../static/jquery-3.0.0.min.js"></script>
     <script src="../static/underscore-min.js"></script>
     </head>
     <body>
-    <div class="container">
-        <div class="jumbotron">
-        <h2>模块标号: $s_id_val </br>模块描述: $s_desc_val</h2>
+    <nav class="navbar navbar-inverse">
+        <div class="container-fluid">
+            <div class="navbar-header">
+                <a class="navbar-brand" href="#">VGTP 性能</a>
+            </div>
+            <ul class="nav navbar-nav">
+                <li>
+                    <a href="#">WEB http://ipaddress:17000/?modid=99</a>
+                 </li>
+                 <li>
+                    <a href="#">LOG ID:99|DESC:VGTP-TEST|XX:0020|YY1:0019|YY2:0087</a>
+                 </li>
+                 <li>
+                    <a href="#">UDP IP:17012</a>
+                 </li>
+             </ul>
         </div>
-        <hr>
-        <hr>
+    </nav>   
+    <div class="container">
+        <!-- Page Heading -->
+        <div class="row">
+            <div class="col-lg-12">
+                <h1 class="page-header">模块标号: $s_id_val
+                    <small>模块描述: $s_desc_val</small>
+                </h1>
+            </div>
+        </div>
+
         <script type="text/javascript">
             var para_data = {};
         </script>
         $for k in sorted(para_dict.keys()):
-            <div class="row" id='$:k' style="width:1024px; height:350px;"></div>
+            <div class="row" id='$:k' style="width:1024px; height:300px;"></div>
             <script type="text/javascript">
                 para_data["$:k"] = $:para_dict[k]
                 var ${k}_Chart = echarts.init(document.getElementById('$:k'));
@@ -100,7 +125,7 @@ $code:
                         name: '$:k',
                         type: 'bar',
                         data:  para_data["$:k"],
-                        barMaxWidth: 3,
+                        barMaxWidth: 5,
 
                     }]
                 };
@@ -110,6 +135,8 @@ $code:
 
         <script>
         var app = {}; 
+        var x_min = 0;
+        var x_max = $:max_x_axis_len;
 
         // Fetch data form the servers.
         function refresh_data() {
@@ -124,10 +151,7 @@ $code:
         
         //parse data of drawing.
         function parse_data(data){
-            x_min = 0;
-            x_max = 200;
             if ("{DATA:NULL}" != data){
-
                 columns = data.split("|");
                 x = columns[$x_axis_col_id].split(":")[1];
                 x_name = columns[$x_axis_col_id].split(":")[0];
@@ -140,17 +164,25 @@ $code:
                     else{
                         x_max = x;
                         para_data[key].push([parseInt(x), val]);
-                        console.log(x, val);
+                        //console.log(x, val);
                     }
                 }
                 shift = true;
                 if (shift) {
                     $for k in sorted(para_dict.keys()):
                         list_length = para_data["$:k"].length;
-                        [x_min,v] = para_data["$:k"].shift();
+                        if (list_length>$:max_x_axis_len){
+                            ${k}_Chart.hideLoading();
+                            [x_min,v] = para_data["$:k"].shift();
+                        }
+                        else{
+                            ${k}_Chart.showLoading();
+                        }
+                        list_length = para_data["$:k"].length;
+                        cur_val = para_data["$:k"][list_length-1][1];
                         ${k}_Chart.setOption({
                             xAxis:{
-                               name: x_name +", VAL: "+ val,
+                               name: x_name +",V="+ cur_val,
                                min: x_min,
                                max: x_max
                             },
@@ -165,7 +197,7 @@ $code:
 
         app.timeTicket = setInterval(function () {
             refresh_data(true);
-            }, 200);;
+            }, 20);;
         </script>
     </div>
     </body>

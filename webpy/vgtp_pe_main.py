@@ -53,6 +53,9 @@ class index:
         if len(content)==0:
             logger.info("No Data in Redis DB.")
             return "<html><body><h2> No Data in Redis DB. Wait a min.</h2>\
+                    <h4>WEB http://ipaddress:17000/?modid=00</h4>\
+                    <h4>LOG ID:00|DESC:VGTP|XX:0020|YY1:0019|YY2:0087</h4>\
+                    <h4>UDP IP:17012</h4>\
                     </body></html>"
         else:        
             return render.reg_module(list_key , i.modid)
